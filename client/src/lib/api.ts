@@ -154,10 +154,19 @@ function parseGeminiResponse(response: any): ProcessedNote {
     if (jsonMatch && jsonMatch[1]) {
       const parsedData = JSON.parse(jsonMatch[1]);
       
+      // Process content based on format
+      let processedContent = parsedData.content || '';
+      const format = parsedData.format || 'markdown';
+      
+      // If format is markdown, convert to HTML
+      if (format === 'markdown') {
+        processedContent = marked.parse(processedContent) as string;
+      }
+      
       return {
         mode: parsedData.mode || 'organize',
-        content: parsedData.content || '',
-        format: parsedData.format || 'markdown'
+        content: processedContent,
+        format: format
       };
     }
     
