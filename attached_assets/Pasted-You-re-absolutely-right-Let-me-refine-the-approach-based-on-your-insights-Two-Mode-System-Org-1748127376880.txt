@@ -1,0 +1,154 @@
+You're absolutely right! Let me refine the approach based on your insights:
+
+## Two-Mode System: Organize vs Visualize
+
+### Mode 1: **Smart Text Organization** (Default)
+This should be the primary mode - just organizing messy notes into clean, structured text:
+
+**Input (Left)**: Raw, unstructured notes
+```
+meeting with john about project timeline
+need to finish design by friday
+sarah handling backend
+budget is 50k
+launch date march 15
+```
+
+**Output (Right)**: Clean, organized format
+```
+## Project Meeting Notes
+
+**Attendees**: John
+
+**Timeline**:
+- Design completion: Friday
+- Launch date: March 15
+
+**Team Assignments**:
+- Backend: Sarah
+
+**Budget**: $50,000
+```
+
+### Mode 2: **Visual Diagrams** (When needed)
+Only generate diagrams when the content naturally calls for it:
+- Process descriptions → Flowchart
+- Hierarchical information → Tree/Mind map
+- Timeline events → Timeline diagram
+
+## Smart Mode Detection
+
+The AI should analyze text patterns to decide:
+
+### Triggers for Organization Mode:
+- Short bullet points
+- Meeting notes pattern
+- Random thoughts/brain dump
+- Lists of items
+- Quick notes
+
+### Triggers for Visualization Mode:
+- Words like "process", "steps", "flow"
+- "First... then... finally..."
+- Hierarchical relationships
+- Timeline indicators
+- Complex relationships between concepts
+
+## Left Pane Design
+
+You're right - **keep it minimal**! No formatting buttons needed because:
+
+1. **Focus on Writing**: Users should just dump their thoughts
+2. **AI Handles Structure**: The right pane does all formatting
+3. **No Distraction**: Clean interface = better flow
+
+### Left Pane Features:
+```
+┌─────────────────────────┐
+│ Just start typing...    │
+│                         │
+│ [User's raw text here]  │
+│                         │
+│                         │
+│ ───────────────────────│
+│ 📎 Paste | 🎤 Voice    │
+└─────────────────────────┘
+```
+
+Just:
+- Plain text input
+- Paste support
+- Maybe voice input
+- Auto-save
+- That's it!
+
+## Right Pane Intelligence
+
+The right pane dynamically switches between:
+
+### 1. **Formatted Text View** (Most common)
+- Clean headings
+- Bullet points
+- Bold key terms
+- Proper spacing
+- Categories/sections
+
+### 2. **Diagram View** (When appropriate)
+- Automatically switches when content suits visualization
+- Small toggle to switch between views
+
+## Example Flow
+
+**User types** (left pane):
+```
+user research findings
+18-25 age group likes feature A
+26-35 prefers feature B
+main pain point is slow loading
+suggestion add dark mode
+budget constraint under 10k
+```
+
+**AI generates** (right pane - organized text):
+```
+# User Research Findings
+
+## Demographics & Preferences
+• **18-25 age group**: Feature A preferred
+• **26-35 age group**: Feature B preferred
+
+## Key Insights
+**Pain Point**: Slow loading times
+
+## Recommendations
+• Implement dark mode
+
+## Constraints
+• Budget: Under $10,000
+```
+
+**Optional**: User can click "Visualize" button to see as mind map if needed
+
+## Implementation Simplicity
+
+1. **Single Text Analysis API Call**
+   - Gemini analyzes text
+   - Returns: `{mode: "organize" | "visualize", content: "..."}`
+
+2. **Two Simple Renderers**
+   - Markdown renderer for organized text
+   - Mermaid.js for diagrams
+
+3. **Smart Defaults**
+   - 80% of time: Just organize
+   - 20% of time: Visualize
+   - User can manually toggle
+
+This approach:
+- Reduces complexity
+- Saves API costs
+- Gives users what they actually need
+- Maintains focus on writing
+- Provides value immediately
+
+The key insight: **Most users just want their messy notes cleaned up**, not always turned into diagrams!
