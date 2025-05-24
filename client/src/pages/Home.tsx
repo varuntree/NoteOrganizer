@@ -1,10 +1,10 @@
 import React from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import InputPane from '@/components/InputPane';
 import OutputPane from '@/components/OutputPane';
 import FeatureCard from '@/components/FeatureCard';
 import ExampleCard from '@/components/ExampleCard';
+import SimpleInput from '@/components/SimpleInput';
 
 const Home: React.FC = () => {
   return (
@@ -20,7 +20,7 @@ const Home: React.FC = () => {
 
         {/* Two-pane Layout */}
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 mobile-stack">
-          <InputPane />
+          <SimpleInput />
           <OutputPane />
         </div>
 
