@@ -21,24 +21,32 @@ const OutputPane: React.FC = () => {
   const { showToast } = useToastNotification();
 
   useEffect(() => {
-    if (inputText) {
-      // Process the input text based on the current mode
-      if (mode === 'organize') {
-        const content = processText(inputText);
-        setProcessedContent(content);
+    console.log("Input text changed:", inputText);
+    
+    try {
+      if (inputText && inputText.trim() !== '') {
+        // Process the input text based on the current mode
+        if (mode === 'organize') {
+          const content = processText(inputText);
+          console.log("Processed content:", content);
+          setProcessedContent(content);
+        } else {
+          // Generate diagram in Mermaid syntax
+          const mermaidContent = generateDiagram(inputText);
+          console.log("Mermaid content:", mermaidContent);
+          setDiagram(mermaidContent);
+          
+          // Render the mermaid diagram
+          setTimeout(() => {
+            mermaid.contentLoaded();
+          }, 100);
+        }
       } else {
-        // Generate diagram in Mermaid syntax
-        const mermaidContent = generateDiagram(inputText);
-        setDiagram(mermaidContent);
-        
-        // Render the mermaid diagram
-        setTimeout(() => {
-          mermaid.contentLoaded();
-        }, 100);
+        setProcessedContent('');
+        setDiagram('');
       }
-    } else {
-      setProcessedContent('');
-      setDiagram('');
+    } catch (error) {
+      console.error("Error processing text:", error);
     }
   }, [inputText, mode]);
 
