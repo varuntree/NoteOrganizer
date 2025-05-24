@@ -73,7 +73,7 @@ const InputPane: React.FC = () => {
         ref={textareaRef}
         className="flex-1 p-4 w-full text-neutral-800 focus:outline-none resize-none" 
         placeholder="Just start typing your unorganized notes here..."
-        value={inputText}
+        defaultValue=""
         onChange={(e) => setInputText(e.target.value)}
       ></textarea>
     </div>
