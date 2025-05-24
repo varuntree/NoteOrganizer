@@ -1,12 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import OutputPane from '@/components/OutputPane';
 import FeatureCard from '@/components/FeatureCard';
 import ExampleCard from '@/components/ExampleCard';
-import SimpleInput from '@/components/SimpleInput';
+import SmartInput from '@/components/SmartInput';
+import SmartOutput from '@/components/SmartOutput';
+import { ProcessedNote } from '@/lib/api';
 
 const Home: React.FC = () => {
+  const [mode, setMode] = useState<'organize' | 'visualize'>('organize');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [result, setResult] = useState<ProcessedNote | null>(null);
+
+  const handleModeChange = (newMode: 'organize' | 'visualize') => {
+    setMode(newMode);
+  };
+
+  const handleProcessing = (processing: boolean) => {
+    setIsProcessing(processing);
+  };
+
+  const handleResult = (newResult: ProcessedNote) => {
+    setResult(newResult);
+    // If result suggests a different mode, update the mode
+    if (newResult.mode !== mode) {
+      setMode(newResult.mode);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -20,8 +41,17 @@ const Home: React.FC = () => {
 
         {/* Two-pane Layout */}
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 mobile-stack">
-          <SimpleInput />
-          <OutputPane />
+          <SmartInput 
+            onProcessing={handleProcessing} 
+            onResult={handleResult} 
+            mode={mode} 
+          />
+          <SmartOutput 
+            result={result} 
+            isProcessing={isProcessing} 
+            mode={mode} 
+            onModeChange={handleModeChange} 
+          />
         </div>
 
         {/* Feature Highlights */}

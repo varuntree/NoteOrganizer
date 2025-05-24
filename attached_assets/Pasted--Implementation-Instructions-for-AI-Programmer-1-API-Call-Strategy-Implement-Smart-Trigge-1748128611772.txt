@@ -1,0 +1,236 @@
+## Implementation Instructions for AI Programmer
+
+### 1. API Call Strategy
+
+**Implement Smart Triggering:**
+```javascript
+// Use debouncing with these triggers:
+1. Automatic trigger: After 2 seconds of no typing (debounce)
+2. Manual trigger: "Organize Now" button
+3. On blur: When user clicks outside the text area
+4. On mode switch: When toggling between Organize/Visualize
+
+// Debounce implementation
+let debounceTimer;
+const DEBOUNCE_DELAY = 2000; // 2 seconds
+
+function handleTextChange(text) {
+  clearTimeout(debounceTimer);
+  
+  // Show "organizing..." indicator
+  showLoadingState();
+  
+  debounceTimer = setTimeout(() => {
+    if (text.trim().length > 10) { // Only process if more than 10 chars
+      processNotes(text);
+    }
+  }, DEBOUNCE_DELAY);
+}
+```
+
+### 2. API Request Structure
+
+**Bundle the request like this:**
+```javascript
+async function processNotes(userText) {
+  const currentMode = getSelectedMode(); // "organize" or "visualize"
+  
+  const requestPayload = {
+    model: "gemini-1.5-flash", // or your preferred model
+    contents: [{
+      parts: [{
+        text: `${SYSTEM_PROMPT}\n\nUser Input:\n${userText}\n\nMode: ${currentMode}`
+      }]
+    }],
+    generationConfig: {
+      temperature: 0.3, // Lower for consistent formatting
+      maxOutputTokens: 2048,
+    }
+  };
+  
+  try {
+    const response = await callGeminiAPI(requestPayload);
+    const result = parseAIResponse(response);
+    renderResult(result);
+  } catch (error) {
+    handleError(error);
+  }
+}
+```
+
+### 3. Response Parsing & Rendering
+
+**Parse the AI response:**
+```javascript
+function parseAIResponse(response) {
+  // The AI will return JSON like:
+  // {
+  //   "mode": "organize" or "visualize",
+  //   "content": "formatted content or mermaid code",
+  //   "format": "markdown" or "mermaid"
+  // }
+  
+  const responseText = response.candidates[0].content.parts[0].text;
+  const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
+  
+  if (jsonMatch) {
+    return JSON.parse(jsonMatch[1]);
+  }
+  
+  // Fallback if JSON parsing fails
+  return {
+    mode: "organize",
+    content: responseText,
+    format: "markdown"
+  };
+}
+
+function renderResult(result) {
+  const outputContainer = document.getElementById('organized-result');
+  
+  if (result.format === "markdown") {
+    // Render markdown to HTML
+    outputContainer.innerHTML = markdownToHTML(result.content);
+  } else if (result.format === "mermaid") {
+    // Render mermaid diagram
+    outputContainer.innerHTML = `<div class="mermaid">${result.content}</div>`;
+    mermaid.init(); // Re-initialize mermaid
+  }
+}
+```
+
+### 4. State Management
+
+**Track these states:**
+```javascript
+const appState = {
+  isProcessing: false,
+  lastProcessedText: '',
+  currentMode: 'organize',
+  autoProcess: true
+};
+
+// Prevent duplicate API calls
+function shouldProcess(newText) {
+  return newText !== appState.lastProcessedText && 
+         newText.trim().length > 10 &&
+         !appState.isProcessing;
+}
+```
+
+## Gemini API Prompt (Hardcode This)
+
+```javascript
+const SYSTEM_PROMPT = `You are NoteOrganizer, an AI that transforms messy notes into well-structured content.
+
+IMPORTANT: You must ALWAYS respond with a JSON object wrapped in \`\`\`json code blocks.
+
+Your response format:
+\`\`\`json
+{
+  "mode": "organize" or "visualize",
+  "content": "your formatted content here",
+  "format": "markdown" or "mermaid"
+}
+\`\`\`
+
+RULES:
+
+1. For ORGANIZE mode (default):
+   - Transform messy notes into clean, structured markdown
+   - Use proper headings (##), bullet points, bold (**text**)
+   - Group related items together
+   - Extract key information (dates, names, numbers)
+   - Keep it concise and scannable
+
+2. For VISUALIZE mode:
+   - ONLY create diagrams when content naturally suits visualization
+   - Use Mermaid.js syntax
+   - Choose appropriate diagram type:
+     * flowchart LR for processes
+     * mindmap for brainstorming/ideas
+     * timeline for chronological events
+     * graph TD for hierarchies
+
+3. Auto-detect when to visualize:
+   - Process descriptions (first, then, finally)
+   - Hierarchical relationships
+   - Timeline/chronological content
+   - Workflow descriptions
+   - If user explicitly requests visualization mode
+
+4. Formatting guidelines:
+   - For organize mode: Clean markdown with headers, lists, emphasis
+   - For visualize mode: Valid Mermaid.js syntax only
+   - No extra explanations outside the JSON
+
+EXAMPLES:
+
+Input: "meeting with john about project timeline need to finish design by friday sarah handling backend budget 50k"
+Output:
+\`\`\`json
+{
+  "mode": "organize",
+  "content": "## Project Meeting Notes\\n\\n**Attendee**: John\\n\\n### Timeline\\n- Design completion: **Friday**\\n\\n### Team Assignments\\n- Backend: **Sarah**\\n\\n### Budget\\n- **$50,000**",
+  "format": "markdown"
+}
+\`\`\`
+
+Input: "user signup process first user enters email then creates password system sends verification email user clicks link account activated"
+Output:
+\`\`\`json
+{
+  "mode": "visualize",
+  "content": "flowchart LR\\n    A[User enters email] --> B[Creates password]\\n    B --> C[System sends verification email]\\n    C --> D[User clicks link]\\n    D --> E[Account activated]",
+  "format": "mermaid"
+}
+\`\`\``;
+```
+
+### 5. Additional Implementation Details
+
+**Error Handling:**
+```javascript
+function handleError(error) {
+  const outputContainer = document.getElementById('organized-result');
+  outputContainer.innerHTML = `
+    <div class="error-message">
+      <p>Unable to process notes. Please try again.</p>
+    </div>
+  `;
+  console.error('API Error:', error);
+}
+```
+
+**Loading States:**
+```javascript
+function showLoadingState() {
+  const outputContainer = document.getElementById('organized-result');
+  outputContainer.innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Organizing your notes...</p>
+    </div>
+  `;
+}
+```
+
+**Mode Toggle Handler:**
+```javascript
+function handleModeToggle(newMode) {
+  appState.currentMode = newMode;
+  
+  // Re-process with new mode if we have text
+  const currentText = document.getElementById('notes-input').value;
+  if (currentText.trim().length > 10) {
+    processNotes(currentText);
+  }
+}
+```
+
+This implementation ensures:
+- Efficient API usage (no spam calls)
+- Smooth user experience
+- Clear separation between organize and visualize modes
+- Proper error handling
+- Consistent, predictable output format
