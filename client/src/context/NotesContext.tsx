@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface NotesContextType {
@@ -8,14 +8,16 @@ interface NotesContextType {
   saveNotes: () => void;
 }
 
-const NotesContext = createContext<NotesContextType | undefined>(undefined);
+// Create context with default values
+const NotesContext = createContext<NotesContextType>({
+  inputText: '',
+  setInputText: () => {},
+  clearNotes: () => {},
+  saveNotes: () => {}
+});
 
 export const useNotesContext = () => {
-  const context = useContext(NotesContext);
-  if (!context) {
-    throw new Error('useNotesContext must be used within a NotesProvider');
-  }
-  return context;
+  return useContext(NotesContext);
 };
 
 interface NotesProviderProps {
@@ -23,20 +25,14 @@ interface NotesProviderProps {
 }
 
 export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
+  // Use localStorage to persist notes
   const [savedNotes, setSavedNotes] = useLocalStorage<string>('note-organizer-text', '');
-  const [inputText, setInputText] = useState<string>('');
+  const [inputText, setInputText] = useState<string>(savedNotes || '');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-
-  // Load saved notes on initial render
-  useEffect(() => {
-    if (savedNotes) {
-      setInputText(savedNotes);
-    }
-  }, [savedNotes]);
 
   // Auto-save functionality
   useEffect(() => {
-    if (!inputText) return;
+    if (inputText === '' && savedNotes === '') return;
     
     const autoSaveTimeout = setTimeout(() => {
       setSavedNotes(inputText);
@@ -44,26 +40,31 @@ export const NotesProvider: React.FC<NotesProviderProps> = ({ children }) => {
     }, 3000); // Auto-save after 3 seconds of inactivity
     
     return () => clearTimeout(autoSaveTimeout);
-  }, [inputText, setSavedNotes]);
+  }, [inputText, setSavedNotes, savedNotes]);
 
+  // Clear notes function
   const clearNotes = () => {
     setInputText('');
     setSavedNotes('');
     setLastSaved(null);
   };
 
+  // Save notes function
   const saveNotes = () => {
     setSavedNotes(inputText);
     setLastSaved(new Date());
   };
 
+  // Create memoized context value
+  const contextValue = useMemo(() => ({
+    inputText,
+    setInputText,
+    clearNotes,
+    saveNotes
+  }), [inputText, setInputText, clearNotes, saveNotes]);
+
   return (
-    <NotesContext.Provider value={{ 
-      inputText, 
-      setInputText,
-      clearNotes,
-      saveNotes
-    }}>
+    <NotesContext.Provider value={contextValue}>
       {children}
     </NotesContext.Provider>
   );
