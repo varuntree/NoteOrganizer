@@ -2,6 +2,22 @@
 import { marked } from 'marked';
 import mermaid from 'mermaid';
 
+// Check for API key in environment
+const hasApiKey = () => {
+  return process.env.GEMINI_API_KEY || localStorage.getItem('GEMINI_API_KEY');
+};
+
+// Get API key from storage
+const getApiKey = () => {
+  return localStorage.getItem('GEMINI_API_KEY') || process.env.GEMINI_API_KEY;
+};
+
+// Save API key to localStorage
+export const saveApiKey = (key: string) => {
+  localStorage.setItem('GEMINI_API_KEY', key);
+  return key;
+};
+
 // System prompt for the AI
 const SYSTEM_PROMPT = `You are NoteOrganizer, an AI that transforms messy notes into well-structured content.
 
@@ -47,19 +63,27 @@ RULES:
    - No extra explanations outside the JSON
 `;
 
-// Mock API response for development (until we add the real API)
+// Process notes using the Gemini API
 export async function processNotes(userText: string, mode: 'organize' | 'visualize'): Promise<ProcessedNote> {
-  // Show the processing is happening
   console.log(`Processing notes in ${mode} mode`);
   
-  // For now, use local processing functions
   try {
-    // This is where the real API call would go
-    // For now, we'll use the local implementation
-    let result: ProcessedNote;
+    const apiKey = getApiKey();
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Check if API key is available
+    if (!apiKey) {
+      throw new Error('API key missing. Please add your Gemini API key to use this feature.');
+    }
+    
+    // Use Gemini API if key exists
+    const result = await callGeminiAPI(userText, mode, apiKey);
+    return result;
+  } catch (error) {
+    console.error('Error processing notes:', error);
+    
+    // Fall back to local processing if API call fails
+    console.log('Falling back to local processing');
+    let result: ProcessedNote;
     
     if (mode === 'organize') {
       const content = processTextToMarkdown(userText);
@@ -78,9 +102,81 @@ export async function processNotes(userText: string, mode: 'organize' | 'visuali
     }
     
     return result;
+  }
+}
+
+// Call the Gemini API
+async function callGeminiAPI(userText: string, mode: 'organize' | 'visualize', apiKey: string): Promise<ProcessedNote> {
+  const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  
+  const requestPayload = {
+    contents: [{
+      parts: [{
+        text: `${SYSTEM_PROMPT}\n\nUser Input:\n${userText}\n\nMode: ${mode}`
+      }]
+    }],
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 2048,
+    }
+  };
+  
+  const response = await fetch(`${apiUrl}?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestPayload)
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API Error: ${response.status} - ${errorText}`);
+  }
+  
+  const data = await response.json();
+  return parseGeminiResponse(data);
+}
+
+// Parse the Gemini API response
+function parseGeminiResponse(response: any): ProcessedNote {
+  try {
+    // Extract the text from the response
+    const responseText = response.candidates[0]?.content?.parts[0]?.text;
+    
+    if (!responseText) {
+      throw new Error('Empty or invalid response from API');
+    }
+    
+    // Try to find JSON in the response
+    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
+    
+    if (jsonMatch && jsonMatch[1]) {
+      const parsedData = JSON.parse(jsonMatch[1]);
+      
+      return {
+        mode: parsedData.mode || 'organize',
+        content: parsedData.content || '',
+        format: parsedData.format || 'markdown'
+      };
+    }
+    
+    // Fallback if no JSON is found
+    console.warn('No JSON found in response, using raw text');
+    return {
+      mode: 'organize',
+      content: marked.parse(responseText) as string,
+      format: 'markdown'
+    };
   } catch (error) {
-    console.error('Error processing notes:', error);
-    throw error;
+    console.error('Error parsing API response:', error);
+    
+    // Return a simple error note
+    return {
+      mode: 'organize',
+      content: marked.parse('# Error Processing Notes\n\nSorry, there was an error processing your notes. Please try again.') as string,
+      format: 'markdown'
+    };
   }
 }
 

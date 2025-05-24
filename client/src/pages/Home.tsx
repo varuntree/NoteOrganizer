@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import FeatureCard from '@/components/FeatureCard';
 import ExampleCard from '@/components/ExampleCard';
 import SmartInput from '@/components/SmartInput';
 import SmartOutput from '@/components/SmartOutput';
+import ApiKeyInput from '@/components/ApiKeyInput';
 import { ProcessedNote } from '@/lib/api';
 
 const Home: React.FC = () => {
   const [mode, setMode] = useState<'organize' | 'visualize'>('organize');
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ProcessedNote | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(false);
+  
+  // Check if API key exists
+  useEffect(() => {
+    const apiKey = localStorage.getItem('GEMINI_API_KEY');
+    setHasApiKey(!!apiKey);
+  }, []);
 
   const handleModeChange = (newMode: 'organize' | 'visualize') => {
     setMode(newMode);
@@ -39,6 +47,9 @@ const Home: React.FC = () => {
           <p className="text-neutral-600">Just start typing your unstructured notes on the left, and watch as they get instantly organized on the right.</p>
         </div>
 
+        {/* API Key Input */}
+        <ApiKeyInput onSave={() => setHasApiKey(true)} />
+        
         {/* Two-pane Layout */}
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 mobile-stack">
           <SmartInput 
