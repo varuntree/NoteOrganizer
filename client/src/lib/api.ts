@@ -18,8 +18,58 @@ export const saveApiKey = (key: string) => {
   return key;
 };
 
-// System prompt for the AI
-const SYSTEM_PROMPT = `You are NoteOrganizer, an AI that transforms messy notes into well-structured content.
+// System prompts for the AI
+const SMART_MODE_PROMPT = `You are NoteOrganizer, an intelligent AI that decides the best way to present information.
+
+IMPORTANT: You must ALWAYS respond with a JSON object wrapped in \`\`\`json code blocks.
+
+Your response format:
+\`\`\`json
+{
+  "mode": "organize" or "visualize",
+  "content": "your formatted content here",
+  "format": "markdown" or "mermaid"
+}
+\`\`\`
+
+DECISION CRITERIA:
+
+Use VISUALIZE mode ONLY when ALL of these conditions are met:
+1. Clear sequential process with distinct steps (e.g., "first do X, then Y, finally Z")
+2. Hierarchical structure with parent-child relationships
+3. Timeline with specific dates or chronological order
+4. Workflow with decision points or branches
+5. User explicitly mentions: "diagram", "flowchart", "visual", "chart"
+
+Use ORGANIZE mode (default) for:
+- Meeting notes, action items, to-do lists
+- Ideas, brainstorming, general thoughts
+- Information without clear visual relationships
+- Lists without hierarchical structure
+- Any content that doesn't strongly fit visualization
+
+VISUAL MODE RULES:
+- Use ONLY these Mermaid diagram types:
+  * flowchart TD or LR for processes (max 8 nodes)
+  * graph TD for hierarchies (max 10 nodes)
+- Keep diagrams simple and readable
+- Each node should have concise labels (max 5 words)
+- Use proper Mermaid.js syntax
+- Return ONLY the mermaid code, no markdown formatting or backticks
+- Example format:
+  flowchart TD
+    A[Start] --> B[Process]
+    B --> C[End]
+
+ORGANIZE MODE RULES:
+- Clean markdown with proper structure
+- Use headers (##), lists, bold (**text**)
+- Group related items together
+- Extract key information (dates, names, actions)
+
+Remember: When in doubt, choose ORGANIZE mode. Visual mode is only for content that truly benefits from visualization.`;
+
+const MANUAL_MODE_PROMPT = `You are NoteOrganizer, an AI that transforms messy notes into well-structured content.
 
 IMPORTANT: You must ALWAYS respond with a JSON object wrapped in \`\`\`json code blocks.
 
@@ -34,7 +84,7 @@ Your response format:
 
 RULES:
 
-1. For ORGANIZE mode (default):
+1. For ORGANIZE mode:
    - Transform messy notes into clean, structured markdown
    - Use proper headings (##), bullet points, bold (**text**)
    - Group related items together
@@ -42,30 +92,23 @@ RULES:
    - Keep it concise and scannable
 
 2. For VISUALIZE mode:
-   - ONLY create diagrams when content naturally suits visualization
-   - Use Mermaid.js syntax
-   - Choose appropriate diagram type:
-     * flowchart LR for processes
-     * mindmap for brainstorming/ideas
-     * timeline for chronological events
+   - Create simple, clear diagrams using Mermaid.js
+   - Use appropriate diagram type:
+     * flowchart TD/LR for processes
      * graph TD for hierarchies
+   - Keep nodes concise (max 5 words)
+   - Maximum 10 nodes for readability
+   - Return ONLY the mermaid code, no markdown formatting
 
-3. Auto-detect when to visualize:
-   - Process descriptions (first, then, finally)
-   - Hierarchical relationships
-   - Timeline/chronological content
-   - Workflow descriptions
-   - If user explicitly requests visualization mode
-
-4. Formatting guidelines:
-   - For organize mode: Clean markdown with headers, lists, emphasis
-   - For visualize mode: Valid Mermaid.js syntax only
-   - No extra explanations outside the JSON
-`;
+Formatting guidelines:
+- For organize mode: Clean markdown with headers, lists, emphasis
+- For visualize mode: Valid Mermaid.js syntax only
+- No extra explanations outside the JSON`;
 
 // Process notes using the Gemini API
-export async function processNotes(userText: string, mode: 'organize' | 'visualize'): Promise<ProcessedNote> {
-  console.log(`Processing notes in ${mode} mode`);
+export async function processNotes(userText: string, mode: 'organize' | 'visualize' | null): Promise<ProcessedNote> {
+  const isSmartMode = mode === null;
+  console.log(`Processing notes in ${isSmartMode ? 'smart' : mode} mode`);
   
   try {
     const apiKey = getApiKey();
@@ -76,7 +119,7 @@ export async function processNotes(userText: string, mode: 'organize' | 'visuali
     }
     
     // Use Gemini API if key exists
-    const result = await callGeminiAPI(userText, mode, apiKey);
+    const result = await callGeminiAPI(userText, mode, apiKey, isSmartMode);
     return result;
   } catch (error) {
     console.error('Error processing notes:', error);
@@ -85,7 +128,8 @@ export async function processNotes(userText: string, mode: 'organize' | 'visuali
     console.log('Falling back to local processing');
     let result: ProcessedNote;
     
-    if (mode === 'organize') {
+    // In smart mode or organize mode, default to organize
+    if (isSmartMode || mode === 'organize') {
       const content = processTextToMarkdown(userText);
       result = {
         mode: 'organize',
@@ -106,13 +150,22 @@ export async function processNotes(userText: string, mode: 'organize' | 'visuali
 }
 
 // Call the Gemini API
-async function callGeminiAPI(userText: string, mode: 'organize' | 'visualize', apiKey: string): Promise<ProcessedNote> {
+async function callGeminiAPI(userText: string, mode: 'organize' | 'visualize' | null, apiKey: string, isSmartMode: boolean): Promise<ProcessedNote> {
   const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  
+  // Choose the appropriate prompt
+  const systemPrompt = isSmartMode ? SMART_MODE_PROMPT : MANUAL_MODE_PROMPT;
+  
+  // Build the prompt text
+  let promptText = `${systemPrompt}\n\nUser Input:\n${userText}`;
+  if (!isSmartMode && mode) {
+    promptText += `\n\nMode: ${mode}`;
+  }
   
   const requestPayload = {
     contents: [{
       parts: [{
-        text: `${SYSTEM_PROMPT}\n\nUser Input:\n${userText}\n\nMode: ${mode}`
+        text: promptText
       }]
     }],
     generationConfig: {
@@ -138,6 +191,35 @@ async function callGeminiAPI(userText: string, mode: 'organize' | 'visualize', a
   return parseGeminiResponse(data);
 }
 
+// Validate mermaid syntax
+function validateMermaidSyntax(mermaidCode: string): boolean {
+  try {
+    if (!mermaidCode || mermaidCode.trim().length === 0) return false;
+    
+    // Basic syntax checks
+    const validDiagramTypes = ['flowchart', 'graph', 'timeline', 'gantt', 'mindmap'];
+    const cleanCode = mermaidCode.trim();
+    const firstLine = cleanCode.split('\n')[0].toLowerCase();
+    
+    // Check if it starts with a valid diagram type
+    const hasValidType = validDiagramTypes.some(type => firstLine.includes(type));
+    if (!hasValidType) return false;
+    
+    // For flowcharts and graphs, check basic structure
+    if (firstLine.includes('flowchart') || firstLine.includes('graph')) {
+      // Just check if there's at least one node definition
+      const hasBasicStructure = /\w+[\[\(\{]/.test(cleanCode);
+      return hasBasicStructure;
+    }
+    
+    // For other diagram types, just check they have content
+    return cleanCode.split('\n').length > 1;
+  } catch (error) {
+    console.error('Error validating mermaid:', error);
+    return false;
+  }
+}
+
 // Parse the Gemini API response
 function parseGeminiResponse(response: any): ProcessedNote {
   try {
@@ -156,7 +238,44 @@ function parseGeminiResponse(response: any): ProcessedNote {
       
       // Process content based on format
       let processedContent = parsedData.content || '';
-      const format = parsedData.format || 'markdown';
+      let format = parsedData.format || 'markdown';
+      let mode = parsedData.mode || 'organize';
+      
+      // Clean up mermaid content if needed
+      if (format === 'mermaid') {
+        // Remove any markdown code block formatting if present
+        processedContent = processedContent.replace(/^```mermaid\n/, '').replace(/\n```$/, '');
+        processedContent = processedContent.replace(/^```\n/, '').replace(/\n```$/, '');
+        processedContent = processedContent.trim();
+        
+        console.log('Mermaid format detected');
+        console.log('Raw mermaid content:', processedContent);
+        console.log('First line:', processedContent.split('\n')[0]);
+        
+        // For now, skip validation to see what's happening
+        const isValid = validateMermaidSyntax(processedContent);
+        console.log('Validation result:', isValid);
+        
+        if (!isValid) {
+          console.warn('Invalid mermaid syntax detected, falling back to markdown');
+          // Try to extract meaningful content from the mermaid code
+          const lines = processedContent.split('\n')
+            .filter((line: string) => line.trim() && !line.trim().startsWith('flowchart') && !line.trim().startsWith('graph'))
+            .map((line: string) => {
+              // Extract node labels
+              const nodeMatch = line.match(/\[([^\]]+)\]|\(([^)]+)\)|\{([^}]+)\}/);
+              if (nodeMatch) {
+                return nodeMatch[1] || nodeMatch[2] || nodeMatch[3];
+              }
+              return line.trim();
+            })
+            .filter((line: string) => line && !line.includes('-->') && !line.includes('---'));
+          
+          processedContent = `# Process Flow\n\n${lines.map((line: string) => `- ${line}`).join('\n')}`;
+          format = 'markdown';
+          mode = 'organize';
+        }
+      }
       
       // If format is markdown, convert to HTML
       if (format === 'markdown') {
@@ -164,7 +283,7 @@ function parseGeminiResponse(response: any): ProcessedNote {
       }
       
       return {
-        mode: parsedData.mode || 'organize',
+        mode: mode,
         content: processedContent,
         format: format
       };
@@ -271,12 +390,15 @@ function processTextToMermaid(text: string): string {
 }
 
 function generateFlowchart(lines: string[]): string {
+  // Limit to 8 nodes for readability
+  const processLines = lines.slice(0, 8);
   let diagram = 'flowchart TD\n';
   
-  lines.forEach((line, index) => {
-    // Create node
+  processLines.forEach((line, index) => {
+    // Create node with truncated text (max 30 chars)
+    const nodeText = line.length > 30 ? line.substring(0, 27) + '...' : line;
     const nodeId = String.fromCharCode(65 + index);
-    diagram += `  ${nodeId}["${line}"]\n`;
+    diagram += `  ${nodeId}["${nodeText}"]\n`;
     
     // Connect nodes
     if (index > 0) {
@@ -289,13 +411,17 @@ function generateFlowchart(lines: string[]): string {
 }
 
 function generateMindmap(lines: string[]): string {
-  let diagram = 'mindmap\n';
+  // Use graph instead of mindmap for better stability
+  let diagram = 'graph TD\n';
   
   if (lines.length > 0) {
-    diagram += `  root((${lines[0]}))\n`;
+    const rootText = lines[0].length > 30 ? lines[0].substring(0, 27) + '...' : lines[0];
+    diagram += `  A["${rootText}"]\n`;
     
-    lines.slice(1).forEach((line, index) => {
-      diagram += `    id${index}[${line}]\n`;
+    lines.slice(1, 9).forEach((line, index) => {
+      const nodeText = line.length > 30 ? line.substring(0, 27) + '...' : line;
+      const nodeId = String.fromCharCode(66 + index);
+      diagram += `  A --> ${nodeId}["${nodeText}"]\n`;
     });
   }
   

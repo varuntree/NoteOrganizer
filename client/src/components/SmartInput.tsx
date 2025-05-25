@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNotesContext } from '@/context/NotesContext';
 import { processNotes } from '@/lib/api';
+import EmotionalEyes from './EmotionalEyes';
 
 // The delay before automatically processing notes (in ms)
 const DEBOUNCE_DELAY = 2000;
@@ -9,14 +10,18 @@ interface SmartInputProps {
   onProcessing: (isProcessing: boolean) => void;
   onResult: (result: any) => void;
   mode: 'organize' | 'visualize';
+  smartMode?: boolean;
 }
 
-const SmartInput: React.FC<SmartInputProps> = ({ onProcessing, onResult, mode }) => {
+const SmartInput: React.FC<SmartInputProps> = ({ onProcessing, onResult, mode, smartMode = false }) => {
   const [localText, setLocalText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastProcessedText, setLastProcessedText] = useState('');
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
   const { setInputText } = useNotesContext();
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Update the context when local text changes
   useEffect(() => {
@@ -54,7 +59,7 @@ const SmartInput: React.FC<SmartInputProps> = ({ onProcessing, onResult, mode })
       processUserNotes();
     }
   };
-  
+
   // Main function to process notes
   const processUserNotes = async () => {
     if (isProcessing || localText.trim().length < 10) return;
@@ -63,7 +68,7 @@ const SmartInput: React.FC<SmartInputProps> = ({ onProcessing, onResult, mode })
       setIsProcessing(true);
       onProcessing(true);
       
-      const result = await processNotes(localText, mode);
+      const result = await processNotes(localText, smartMode ? null : mode);
       onResult(result);
       setLastProcessedText(localText);
       
@@ -75,15 +80,53 @@ const SmartInput: React.FC<SmartInputProps> = ({ onProcessing, onResult, mode })
     }
   };
   
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalText(e.target.value);
+    setCursorPosition(e.target.selectionStart);
+  };
+
+  const handleSelectionChange = () => {
+    if (textareaRef.current) {
+      setCursorPosition(textareaRef.current.selectionStart);
+    }
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    if (textareaRef.current) {
+      setCursorPosition(textareaRef.current.selectionStart);
+    }
+  };
+
+  const handleBlurExtended = () => {
+    handleBlur();
+    setIsFocused(false);
+  };
+
   return (
-    <div className="flex-1 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col relative">
-      <textarea 
+    <div className="flex-1 flex flex-col min-h-[50vh] lg:min-h-0">
+      {/* Emotional Eyes */}
+      <div className="flex justify-center py-4 bg-white rounded-t-lg shadow-sm">
+        <EmotionalEyes 
+          inputValue={localText}
+          cursorPosition={cursorPosition}
+          isActive={isFocused}
+        />
+      </div>
+      
+      <div className="flex-1 bg-white rounded-b-lg shadow-sm overflow-hidden flex flex-col relative">
+        <textarea 
+        ref={textareaRef}
         id="input-area"
-        className="w-full h-full p-8 text-neutral-800 focus:outline-none resize-none bg-transparent" 
-        placeholder="Start typing..."
+        className="w-full h-full p-4 md:p-8 text-neutral-800 focus:outline-none resize-none bg-transparent" 
+        placeholder="Just start typing your unorganized notes here..."
         value={localText}
-        onChange={(e) => setLocalText(e.target.value)}
-        onBlur={handleBlur}
+        onChange={handleTextareaChange}
+        onFocus={handleFocus}
+        onBlur={handleBlurExtended}
+        onSelect={handleSelectionChange}
+        onKeyUp={handleSelectionChange}
+        onClick={handleSelectionChange}
         disabled={isProcessing}
         style={{ fontSize: '16px', lineHeight: '1.6' }}
       ></textarea>
@@ -98,6 +141,7 @@ const SmartInput: React.FC<SmartInputProps> = ({ onProcessing, onResult, mode })
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
