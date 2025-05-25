@@ -61,58 +61,51 @@ const SmartOutput: React.FC<SmartOutputProps> = ({
   };
 
   return (
-    <div className="flex-1 bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden flex flex-col mobile-full-height">
-      <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200 flex justify-between items-center">
-        <div className="flex items-center">
-          <h3 className="font-medium text-neutral-700">Organized Result</h3>
-          <div className="ml-4 flex items-center">
-            <span className="text-sm text-neutral-500 mr-2">Mode:</span>
-            <div className="flex items-center bg-neutral-100 rounded-full p-1">
-              <button 
-                className={`text-xs px-3 py-1 rounded-full transition-colors ${mode === 'organize' ? 'bg-primary text-white font-medium' : 'text-neutral-600 hover:bg-neutral-200'}`}
-                onClick={() => onModeChange('organize')}
-                disabled={isProcessing}
-              >
-                Organize
-              </button>
-              <button 
-                className={`text-xs px-3 py-1 rounded-full transition-colors ${mode === 'visualize' ? 'bg-primary text-white font-medium' : 'text-neutral-600 hover:bg-neutral-200'}`}
-                onClick={() => onModeChange('visualize')}
-                disabled={isProcessing}
-              >
-                Visualize
-              </button>
-            </div>
+    <div className="flex-1 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col relative">
+      {/* Minimal controls */}
+      {result && !isProcessing && (
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          <button 
+            className="text-neutral-400 hover:text-neutral-600 p-2 hover:bg-neutral-100 rounded-full transition-all" 
+            title="Copy"
+            onClick={copyToClipboard}
+          >
+            <i className="ri-file-copy-line text-sm"></i>
+          </button>
+          <button 
+            className="text-neutral-400 hover:text-neutral-600 p-2 hover:bg-neutral-100 rounded-full transition-all" 
+            title="Download"
+            onClick={downloadContent}
+          >
+            <i className="ri-download-line text-sm"></i>
+          </button>
+          <div className="ml-2 flex items-center bg-neutral-100/80 backdrop-blur-sm rounded-full p-1">
+            <button 
+              className={`text-xs px-3 py-1 rounded-full transition-all ${mode === 'organize' ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500'}`}
+              onClick={() => onModeChange('organize')}
+              disabled={isProcessing}
+            >
+              Text
+            </button>
+            <button 
+              className={`text-xs px-3 py-1 rounded-full transition-all ${mode === 'visualize' ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500'}`}
+              onClick={() => onModeChange('visualize')}
+              disabled={isProcessing}
+            >
+              Visual
+            </button>
           </div>
         </div>
-        <div className="flex space-x-2">
-          <button 
-            className="text-neutral-500 hover:text-neutral-700 p-1 rounded" 
-            title="Copy to clipboard"
-            onClick={copyToClipboard}
-            disabled={!result || isProcessing}
-          >
-            <i className="ri-file-copy-line text-lg"></i>
-          </button>
-          <button 
-            className="text-neutral-500 hover:text-neutral-700 p-1 rounded" 
-            title="Download as file"
-            onClick={downloadContent}
-            disabled={!result || isProcessing}
-          >
-            <i className="ri-download-line text-lg"></i>
-          </button>
-        </div>
-      </div>
+      )}
       
-      <div className="flex-1 p-4 overflow-auto">
+      <div className="flex-1 p-8 overflow-auto">
         {isProcessing ? (
           <div className="flex h-full w-full items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin text-primary text-3xl mb-3">
+              <div className="animate-spin text-neutral-300 text-2xl mb-2">
                 <i className="ri-loader-4-line"></i>
               </div>
-              <p className="text-neutral-600">Processing your notes...</p>
+              <p className="text-neutral-400 text-sm">Processing...</p>
             </div>
           </div>
         ) : result ? (
@@ -122,11 +115,10 @@ const SmartOutput: React.FC<SmartOutputProps> = ({
             <div ref={mermaidRef} className="mermaid">{result.content}</div>
           )
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-neutral-400">
+          <div className="flex h-full w-full items-center justify-center text-neutral-300">
             <div className="text-center max-w-md">
-              <i className="ri-file-text-line text-5xl mb-3"></i>
-              <p>Enter your notes on the left side to see them organized here.</p>
-              <p className="text-sm mt-2">Try typing meeting notes, process steps, or project ideas.</p>
+              <i className="ri-file-text-line text-4xl mb-2"></i>
+              <p className="text-sm">Your organized notes will appear here</p>
             </div>
           </div>
         )}

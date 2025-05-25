@@ -55,17 +55,6 @@ const SmartInput: React.FC<SmartInputProps> = ({ onProcessing, onResult, mode })
     }
   };
   
-  // Process notes immediately
-  const handleProcessNow = () => {
-    if (localText.trim().length >= 10 && !isProcessing) {
-      // Clear debounce timer if it exists
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      processUserNotes();
-    }
-  };
-  
   // Main function to process notes
   const processUserNotes = async () => {
     if (isProcessing || localText.trim().length < 10) return;
@@ -87,46 +76,25 @@ const SmartInput: React.FC<SmartInputProps> = ({ onProcessing, onResult, mode })
   };
   
   return (
-    <div className="flex-1 bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden flex flex-col mobile-full-height">
-      <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200 flex justify-between items-center">
-        <h3 className="font-medium text-neutral-700">Your Notes</h3>
-        <div className="flex space-x-2">
-          <button 
-            className="bg-primary text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={handleProcessNow}
-            disabled={isProcessing || localText.trim().length < 10}
-          >
-            {isProcessing ? 'Processing...' : 'Organize Now'}
-          </button>
-          <button 
-            className="text-neutral-500 hover:text-neutral-700 p-1 rounded" 
-            title="Clear input"
-            onClick={() => {
-              setLocalText('');
-              setLastProcessedText('');
-            }}
-          >
-            <i className="ri-delete-bin-line text-lg"></i>
-          </button>
-        </div>
-      </div>
+    <div className="flex-1 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col relative">
       <textarea 
         id="input-area"
-        className="flex-1 p-4 w-full text-neutral-800 focus:outline-none resize-none" 
-        placeholder="Just start typing your unorganized notes here..."
+        className="w-full h-full p-8 text-neutral-800 focus:outline-none resize-none bg-transparent" 
+        placeholder="Start typing..."
         value={localText}
         onChange={(e) => setLocalText(e.target.value)}
         onBlur={handleBlur}
         disabled={isProcessing}
+        style={{ fontSize: '16px', lineHeight: '1.6' }}
       ></textarea>
       
       {isProcessing && (
-        <div className="bg-primary-50 py-2 px-4 text-sm text-primary border-t border-primary-100">
-          <div className="flex items-center">
+        <div className="absolute bottom-4 left-4">
+          <div className="flex items-center text-sm text-neutral-400">
             <div className="animate-spin mr-2">
               <i className="ri-loader-4-line"></i>
             </div>
-            <span>Organizing your notes...</span>
+            <span>Processing...</span>
           </div>
         </div>
       )}
